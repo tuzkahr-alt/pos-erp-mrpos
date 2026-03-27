@@ -408,6 +408,37 @@ body {
     border-color: var(--primary);
 }
 
+.autocomplete-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    z-index: 100;
+    max-height: 250px;
+    overflow-y: auto;
+    margin-top: 0.25rem;
+}
+.autocomplete-item {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: var(--transition);
+}
+.autocomplete-item:hover {
+    background: var(--bg-blue-light);
+    color: var(--primary);
+}
+.autocomplete-item:last-child {
+    border-bottom: none;
+}
+
 .product-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));

@@ -132,7 +132,8 @@
                         <div class="pos-products">
                             <div class="search-bar-modern">
                                 <i class="fas fa-barcode"></i>
-                                <input type="text" id="pos-search" placeholder="Escanear código o buscar producto...">
+                                <input type="text" id="pos-search" placeholder="Escanear código o buscar producto..." autocomplete="off">
+                                <div id="pos-search-results" class="autocomplete-dropdown hidden"></div>
                             </div>
                             <div class="product-grid" id="pos-product-grid">
                                 <!-- Products rendered here -->

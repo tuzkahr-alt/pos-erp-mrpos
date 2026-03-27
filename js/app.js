@@ -116,8 +116,46 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    document.getElementById('pos-search').addEventListener('input', (e) => {
-        renderPOSProducts(db.getProducts(e.target.value));
+    const searchInput = document.getElementById('pos-search');
+    const searchResults = document.getElementById('pos-search-results');
+
+    searchInput.addEventListener('input', (e) => {
+        const query = e.target.value.trim();
+        if (query.length === 0) {
+            searchResults.classList.add('hidden');
+            renderPOSProducts(db.getProducts());
+            return;
+        }
+
+        const products = db.getProducts(query);
+        renderPOSProducts(products); // Mantiene el filtrado de grilla como extra
+        
+        searchResults.innerHTML = '';
+        if (products.length > 0) {
+            products.forEach(p => {
+                const div = document.createElement('div');
+                div.className = 'autocomplete-item';
+                div.innerHTML = `<span><strong>${p.name}</strong> <small>(${p.sku})</small></span><span>${formatMoney(p.price)}</span>`;
+                div.addEventListener('click', () => {
+                    db.addToCart(p);
+                    renderCart();
+                    searchInput.value = '';
+                    searchResults.classList.add('hidden');
+                    renderPOSProducts(db.getProducts());
+                    searchInput.focus(); // Mantiene el cursor listo para el siguiente
+                });
+                searchResults.appendChild(div);
+            });
+            searchResults.classList.remove('hidden');
+        } else {
+            searchResults.classList.add('hidden');
+        }
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.search-bar-modern')) {
+            if(searchResults) searchResults.classList.add('hidden');
+        }
     });
 
     const renderCart = () => {
