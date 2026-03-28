@@ -9,6 +9,7 @@
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -44,9 +45,15 @@
                     </button>
                     <span class="tooltip">Inventario</span>
                 </li>
+                <li class="nav-item" data-target="workers">
+                    <button class="nav-btn" title="Cajeros y Personal">
+                        <i class="fas fa-users"></i>
+                    </button>
+                    <span class="tooltip">Gestión Cajeros</span>
+                </li>
             </ul>
             <div class="nav-bottom">
-                <button class="nav-btn"><i class="fas fa-cog"></i></button>
+                <button class="nav-btn" id="btn-settings" title="Configuración"><i class="fas fa-cog"></i></button>
             </div>
         </nav>
 
@@ -99,12 +106,20 @@
                         </div>
                     </div>
 
-                    <div class="dashboard-widgets">
+                    <div class="dashboard-widgets" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; width: 100%;">
                         <div class="widget">
+                            <div class="widget-header">
+                                <h2>Top 5 Productos Más Vendidos</h2>
+                            </div>
+                            <div style="height: 250px;">
+                                <canvas id="chartSales"></canvas>
+                            </div>
+                        </div>
+                        <div class="widget" style="display: flex; flex-direction: column;">
                             <div class="widget-header">
                                 <h2>Cuotas Vencidas / Alertas de Mora</h2>
                             </div>
-                            <div class="table-responsive">
+                            <div class="table-responsive" style="flex: 1;">
                                 <table class="datagrid" id="table-alerts">
                                     <thead>
                                         <tr>
@@ -216,7 +231,7 @@
                     <div class="widget">
                         <div class="widget-header">
                             <h2>Gestión de Inventario (Variantes)</h2>
-                            <button class="btn-primary"><i class="fas fa-plus"></i> Nuevo Producto</button>
+                            <button class="btn-primary" id="btn-open-new-product"><i class="fas fa-plus"></i> Nuevo Producto</button>
                         </div>
                         <div class="table-responsive">
                             <table class="datagrid" id="table-inventory">
@@ -231,6 +246,30 @@
                                     </tr>
                                 </thead>
                                 <tbody id="inventory-body">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 5. WORKERS VIEW -->
+                <section id="workers" class="view">
+                    <div class="widget">
+                        <div class="widget-header">
+                            <h2>Gestión de Cajeros (Inventarios Aislados)</h2>
+                            <button class="btn-primary" id="btn-new-worker"><i class="fas fa-user-plus"></i> Agregar Cajero</button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="datagrid" id="table-workers">
+                                <thead>
+                                    <tr>
+                                        <th>ID Cajero</th>
+                                        <th>Nombre Completo</th>
+                                        <th>Instancia DB Activa</th>
+                                        <th>Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="workers-body">
                                 </tbody>
                             </table>
                         </div>
@@ -277,6 +316,16 @@
                     </div>
                     <div class="credit-warning hidden" id="credit-warning">
                         <i class="fas fa-exclamation-circle"></i> Cliente superará su límite de crédito o tiene 3+ cuotas vencidas.
+                    </div>
+                </div>
+
+                <div id="cash-options" class="mt-4">
+                    <div class="form-group">
+                        <label>Efectivo Recibido (Presiona ENTER para vender):</label>
+                        <input type="number" class="form-control" id="cash-received" placeholder="Monto entregado por cliente" autocomplete="off">
+                    </div>
+                    <div class="mt-2 text-green fw-bold">
+                        Vuelto Estimado a Entregar: <span id="cash-change" style="font-size: 1.2rem;">$0</span>
                     </div>
                 </div>
                 
@@ -330,6 +379,107 @@
                     </div>
                     <button class="btn-primary w-100 mt-2" id="btn-save-client">Guardar Cliente</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Product Modal -->
+    <div class="modal-overlay" id="modal-product">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Ingresar Nuevo Producto</h2>
+                <button class="btn-close-modal"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Nombre del Producto:</label>
+                    <input type="text" class="form-control" id="new-prod-name">
+                </div>
+                <div class="form-group">
+                    <label>Código SKU / Barras:</label>
+                    <input type="text" class="form-control" id="new-prod-sku">
+                </div>
+                <div class="form-group">
+                    <label>Precio Unitario:</label>
+                    <input type="number" class="form-control" id="new-prod-price">
+                </div>
+                <div class="form-group">
+                    <label>Stock Físico (Bodega del Cajero):</label>
+                    <input type="number" class="form-control" id="new-prod-stock" value="10">
+                </div>
+                <div class="form-group">
+                    <label>Marca:</label>
+                    <input type="text" class="form-control" id="new-prod-brand">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary btn-close-modal">Cancelar</button>
+                <button class="btn-primary" id="btn-save-product">Guardar Producto</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="modal-settings">
+        <div class="modal" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>Configuración del Sistema</h2>
+                <button class="btn-close-modal"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="tabs">
+                    <div class="tab active" data-tab="providers">Proveedores</div>
+                    <div class="tab" data-tab="stock-adj">Ajustar Stock Gral</div>
+                </div>
+                
+                <div id="tab-providers" class="tab-content active mt-2">
+                    <div class="form-group">
+                        <label>Nuevo Proveedor (Distribuidor):</label>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <input type="text" class="form-control" id="new-provider-name" placeholder="Ej: Coca-Cola Andina">
+                            <button class="btn-primary" id="btn-save-provider">Grabar</button>
+                        </div>
+                    </div>
+                    <ul class="client-list mt-4" id="providers-list">
+                    </ul>
+                </div>
+
+                <div id="tab-stock-adj" class="tab-content mt-2 hidden">
+                    <p class="text-orange"><i class="fas fa-exclamation-triangle"></i> Reemplazo de inventario (Stock físico).</p>
+                    <div class="form-group">
+                        <label>Seleccionar Producto a Actualizar:</label>
+                        <select class="form-control" id="adj-product"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Cantidad de Stock Real:</label>
+                        <input type="number" class="form-control" id="adj-stock-qty">
+                    </div>
+                    <button class="btn-primary w-100" id="btn-save-stock-adj">Ajustar Inventario Manualmente</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Worker Modal -->
+    <div class="modal-overlay" id="modal-worker">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Añadir Trabajador / Cajero</h2>
+                <button class="btn-close-modal"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <p>Cada cajero tendrá una base de datos de inventario completamente limpia y separada (Instancia propia).</p>
+                <div class="form-group mt-2">
+                    <label>Nombre del Trabajador:</label>
+                    <input type="text" class="form-control" id="new-worker-name">
+                </div>
+                <div class="form-group">
+                    <label>Identificador de Inicio de Sesión:</label>
+                    <input type="text" class="form-control" id="new-worker-pin" placeholder="Contraseña o PIN">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary w-100" id="btn-create-worker">Crear y Autorizar</button>
             </div>
         </div>
     </div>

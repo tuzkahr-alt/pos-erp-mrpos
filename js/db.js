@@ -1,51 +1,82 @@
-// mock-db.js - Simulador de Base de Datos y Estado Local
-
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
+const generateGroceries = () => {
+    const brands = ['Soprole', 'Colun', 'Nestlé', 'Lucchetti', 'Carozzi', 'Tucapel', 'Chef', 'Belmont', 'Coca-Cola', 'CCU', 'Cachantun', 'Báltica', 'Cristal', 'Escudo', 'Costa', 'McKay', 'Savory', 'Maggi', 'Hellmanns', 'Lipton', 'Ideal', 'Castaño'];
+    const items = [
+        { n: 'Arroz G1', p: 1500 }, { n: 'Fideos Espagueti 400g', p: 900 }, { n: 'Aceite Maravilla 1L', p: 2500 },
+        { n: 'Salsa de Tomates 200g', p: 500 }, { n: 'Leche Entera 1L', p: 1100 }, { n: 'Bebida 2L', p: 2200 },
+        { n: 'Cerveza Lata 473ml', p: 1000 }, { n: 'Galletas Vino', p: 700 }, { n: 'Galletas Tritón', p: 900 },
+        { n: 'Mayonesa 400g', p: 1800 }, { n: 'Ketchup 400g', p: 1500 }, { n: 'Mostaza 250g', p: 900 },
+        { n: 'Té Ceylán 100 bolsitas', p: 2500 }, { n: 'Café Instantáneo 100g', p: 3500 }, { n: 'Azúcar Blanca 1kg', p: 1200 },
+        { n: 'Sal de Mesa 1kg', p: 600 }, { n: 'Atún Lomitos Lata', p: 1400 }, { n: 'Jurel Lata 425g', p: 1600 },
+        { n: 'Mantequilla 250g', p: 2100 }, { n: 'Margarina 500g', p: 1400 }, { n: 'Pan de Molde Blanco', p: 2000 },
+        { n: 'Queso Gouda Laminado 250g', p: 2500 }, { n: 'Cecina Mortadela 250g', p: 1500 }, { n: 'Jamón Pierna 250g', p: 2800 },
+        { n: 'Yogurt Batido 125g', p: 350 }, { n: 'Jugo en Polvo', p: 300 }, { n: 'Agua Mineral 1.5L', p: 900 },
+        { n: 'Papel Higiénico 4 rollos', p: 2000 }, { n: 'Toalla Nova 2 rollos', p: 1500 }, { n: 'Detergente Polvo 1kg', p: 2800 },
+        { n: 'Lavalozas 500ml', p: 1200 }, { n: 'Cloro 1L', p: 1100 }, { n: 'Limpiador Pisos 900ml', p: 1500 },
+        { n: 'Shampoo 400ml', p: 2500 }, { n: 'Acondicionador 400ml', p: 2500 }, { n: 'Jabón Barra 3 un', p: 1800 },
+        { n: 'Pasta Dental 90g', p: 1500 }, { n: 'Desodorante Spray', p: 2800 }, { n: 'Harina sin polvos 1kg', p: 1200 },
+        { n: 'Polvos de hornear', p: 600 }, { n: 'Levadura', p: 500 }, { n: 'Porotos Hallados 1kg', p: 2500 },
+        { n: 'Lentejas 1kg', p: 2200 }, { n: 'Garbanzos 1kg', p: 2400 }, { n: 'Avena 500g', p: 1100 },
+        { n: 'Cereal Chocapic', p: 2900 }, { n: 'Miel 500g', p: 3500 }, { n: 'Mermelada Durazno 250g', p: 1100 },
+        { n: 'Manjar 250g', p: 1200 }, { n: 'Crema de leche 200ml', p: 1000 }
+    ];
+    let prods = [];
+    items.forEach((it, i) => {
+        const brand = brands[Math.floor(Math.random() * brands.length)];
+        prods.push({
+            id: generateId(), sku: 'CHI-' + (1000 + i), name: `${it.n} ${brand}`,
+            price: it.p, brand: brand, stock: Math.floor(Math.random() * 50) + 10, variants: null
+        });
+    });
+    return prods;
+};
+
 const INITIAL_DATA = {
-    products: [
-        { id: generateId(), name: 'Zapatillas Nike Air', sku: 'NK-AIR-01', price: 65000, brand: 'Nike', stock: 15, variants: [{ size: '42', color: 'Blanco', stock: 10 }, { size: '43', color: 'Negro', stock: 5 }] },
-        { id: generateId(), name: 'Polerón Adidas O.', sku: 'AD-POL-01', price: 35000, brand: 'Adidas', stock: 8, variants: [{ size: 'M', color: 'Gris', stock: 8 }] },
-        { id: generateId(), name: 'Jeans Levis 501', sku: 'LV-501', price: 45000, brand: 'Levis', stock: 20, variants: [{ size: '42', color: 'Azul', stock: 20 }] },
-        { id: generateId(), name: 'Perfume Calvin Klein', sku: 'CK-PER-01', price: 29990, brand: 'Calvin Klein', stock: 2, variants: [{ size: '100ml', color: 'N/A', stock: 2 }] }
-    ],
+    products: generateGroceries(),
     clients: [
         { id: generateId(), rut: '11.111.111-1', name: 'Juan Pérez', giro: 'Particular', limit_credit: 150000, debt: 45000 },
-        { id: generateId(), rut: '22.222.222-2', name: 'Comercial XYZ', giro: 'Retail', limit_credit: 500000, debt: 0 },
-        { id: generateId(), rut: '33.333.333-3', name: 'María González', giro: 'Particular', limit_credit: 100000, debt: 120000 } // Excede!
+        { id: generateId(), rut: '22.222.222-2', name: 'Comercial XYZ', giro: 'Retail', limit_credit: 500000, debt: 0 }
     ],
     sales: [],
-    // Tabla 'Letras' o 'Cuotas' vinculada a venta a crédito
-    quotas: [
-        { id: generateId(), clientId: '1', clientName: 'Juan Pérez', clientRut: '11.111.111-1', saleId: 'V-001', num_quota: 1, total_quotas: 3, amount: 15000, dueDate: '2026-03-25', status: 'mora', interest: 500 },
-        { id: generateId(), clientId: '1', clientName: 'Juan Pérez', clientRut: '11.111.111-1', saleId: 'V-001', num_quota: 2, total_quotas: 3, amount: 15000, dueDate: '2026-04-25', status: 'pendiente', interest: 0 },
-        { id: generateId(), clientId: '3', clientName: 'María González', clientRut: '33.333.333-3', saleId: 'V-002', num_quota: 1, total_quotas: 1, amount: 120000, dueDate: '2026-02-15', status: 'mora', interest: 10000 }
-    ],
+    quotas: [],
     cart: [],
-    currentClient: null
+    currentClient: null,
+    workers: [
+        { id: 'admin', name: 'Administrador Principal', pin: '1234' }
+    ],
+    providers: [
+        { id: generateId(), name: 'Distribuidora Central' }
+    ]
 };
 
 class Database {
     constructor() {
+        this.activeCashierInfo = localStorage.getItem('mrpos_active_cashier_info');
+        this.activeCashier = this.activeCashierInfo ? JSON.parse(this.activeCashierInfo).id : 'admin';
+        this.storageKey = 'erp_data_' + this.activeCashier;
         this.load();
     }
 
     load() {
-        const data = localStorage.getItem('erp_data');
+        const data = localStorage.getItem(this.storageKey);
         if (data) {
             this.data = JSON.parse(data);
+            if(!this.data.workers) this.data.workers = [{id: 'admin', name: 'Admin', pin: '1234'}];
+            if(!this.data.providers) this.data.providers = [];
         } else {
-            this.data = INITIAL_DATA;
-            // Link mock data IDs correctly
-            this.data.quotas[0].clientId = this.data.clients[0].id;
-            this.data.quotas[1].clientId = this.data.clients[0].id;
-            this.data.quotas[2].clientId = this.data.clients[2].id;
+            this.data = JSON.parse(JSON.stringify(INITIAL_DATA));
             this.save();
         }
     }
 
     save() {
-        localStorage.setItem('erp_data', JSON.stringify(this.data));
+        localStorage.setItem(this.storageKey, JSON.stringify(this.data));
+    }
+
+    switchCashier(workerParams) {
+        localStorage.setItem('mrpos_active_cashier_info', JSON.stringify(workerParams));
+        location.reload();
     }
 
     // Products
@@ -53,6 +84,24 @@ class Database {
         if (!query) return this.data.products;
         query = query.toLowerCase();
         return this.data.products.filter(p => p.name.toLowerCase().includes(query) || p.sku.toLowerCase().includes(query));
+    }
+
+    addProduct(prod) {
+        const newProd = { id: generateId(), variants: null, ...prod };
+        this.data.products.push(newProd);
+        this.save();
+        return newProd;
+    }
+
+    // Providers & Workers
+    addWorker(worker) {
+        this.data.workers.push({ id: generateId(), ...worker });
+        this.save();
+    }
+    
+    addProvider(prov) {
+        this.data.providers.push({ id: generateId(), ...prov });
+        this.save();
     }
 
     // Clients
@@ -69,22 +118,16 @@ class Database {
         return newClient;
     }
 
-    // Validador de Crédito (Regla de Negocio Crítica)
     validateCredit(clientId, amount) {
         const client = this.data.clients.find(c => c.id === clientId);
         if (!client) return { valid: false, reason: 'Cliente no seleccionado' };
-
-        // 1. Validar límite
         if ((client.debt + amount) > client.limit_credit) {
             return { valid: false, reason: `Supera límite de crédito asignado ($${client.limit_credit.toLocaleString('es-CL')})` };
         }
-
-        // 2. Validar cuotas en mora
         const moras = this.data.quotas.filter(q => q.clientId === clientId && q.status === 'mora');
         if (moras.length >= 3) {
-            return { valid: false, reason: 'El cliente tiene 3 o más cuotas vencidas/en mora.' };
+            return { valid: false, reason: 'El cliente tiene 3 o más cuotas en mora.' };
         }
-
         return { valid: true };
     }
 
@@ -118,7 +161,7 @@ class Database {
         this.save();
     }
 
-    // Sales (including Presales and Credits)
+    // Sales
     registerSale(paymentMethod, isPresale, creditParams = null) {
         if (this.data.cart.length === 0) return false;
 
@@ -127,19 +170,18 @@ class Database {
             id: 'V-00' + (this.data.sales.length + 3),
             date: new Date().toISOString(),
             clientId: this.data.currentClient ? this.data.currentClient.id : 'General',
+            cashier: this.activeCashierInfo ? JSON.parse(this.activeCashierInfo).name : 'Admin',
             total: total,
             method: paymentMethod,
             status: isPresale ? 'preventa' : 'finalizada',
-            items: [...this.data.cart]
+            items: [...this.data.cart] // Clonar
         };
 
-        // Reducir stock (si está configurado permitir negativos, no hay problema)
         this.data.cart.forEach(cartItem => {
             const prod = this.data.products.find(p => p.id === cartItem.id);
             if(prod) prod.stock -= cartItem.qty;
         });
 
-        // Crear cuotas/letras si es crédito
         if (paymentMethod === 'credit' && creditParams && this.data.currentClient) {
             const client = this.data.clients.find(c => c.id === this.data.currentClient.id);
             client.debt += total;
@@ -148,7 +190,7 @@ class Database {
             
             for (let i = 1; i <= creditParams.installments; i++) {
                 let dueDate = new Date();
-                dueDate.setMonth(dueDate.getMonth() + i); // + 30 dias aprox por cuota
+                dueDate.setMonth(dueDate.getMonth() + i);
 
                 this.data.quotas.push({
                     id: generateId(),

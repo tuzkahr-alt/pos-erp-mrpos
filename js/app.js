@@ -1,13 +1,16 @@
 // app.js - Lógica de Interfaz de Usuario y Controladores
 
 document.addEventListener('DOMContentLoaded', () => {
-    // ===== SYSTEM CLOCK =====
+    // ===== SYSTEM CLOCK & CASHIER INFO =====
     const updateClock = () => {
         const now = new Date();
         document.getElementById('clock').textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
     setInterval(updateClock, 1000);
     updateClock();
+
+    const currentCashierName = db.activeCashierInfo ? JSON.parse(db.activeCashierInfo).name : 'Admin';
+    document.querySelector('.avatar img').src = `https://ui-avatars.com/api/?name=${currentCashierName.replace(' ', '+')}&background=2563eb&color=fff`;
 
     // ===== ROUTING (Tabs) =====
     const navItems = document.querySelectorAll('.nav-item');
@@ -19,7 +22,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'dashboard': { t: 'Dashboard', s: 'Resumen general del negocio' },
         'pos': { t: 'Punto de Venta', s: 'Ventas y Preventas' },
         'credits': { t: 'Cobranzas y Créditos', s: 'Estado de cuenta, letras y abonos' },
-        'inventory': { t: 'Inventario', s: 'Gestión de productos y stock' }
+        'inventory': { t: 'Inventario', s: `Gestión de productos. Caja Activa: ${currentCashierName}` },
+        'workers': { t: 'Cajeros y Personal', s: 'Gestión de Instancias Aisladas' }
     };
 
     navItems.forEach(item => {
@@ -41,6 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (target === 'dashboard') loadDashboard();
             if (target === 'credits') loadCredits();
             if (target === 'inventory') loadInventory();
+            if (target === 'workers') loadWorkers();
         });
     });
 
@@ -57,19 +62,18 @@ document.addEventListener('DOMContentLoaded', () => {
         return Math.floor(diffTime / (1000 * 60 * 60 * 24));
     };
 
-    // 1. DASHBOARD
+    // 1. DASHBOARD & CHARTS
+    let salesChart = null;
+
     const loadDashboard = () => {
-        // Sales today
         const today = new Date().toISOString().split('T')[0];
         const todaySales = db.data.sales.filter(s => s.date.startsWith(today) && s.status === 'finalizada').reduce((sum, s) => sum + s.total, 0);
         document.getElementById('kpi-sales').textContent = formatMoney(todaySales);
 
-        // Pending Credits Total
         const totalCredits = db.data.quotas.filter(q => q.status !== 'pagado').reduce((sum, q) => sum + q.amount, 0);
         document.getElementById('kpi-credits').textContent = formatMoney(totalCredits);
 
-        // Low stock 
-        const lowStock = db.data.products.filter(p => p.stock < 5).length;
+        const lowStock = db.data.products.filter(p => p.stock < 15).length;
         document.getElementById('kpi-stock').textContent = lowStock;
 
         // Alerts Table
@@ -78,19 +82,46 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const pendingQuotas = db.data.quotas.filter(q => q.status !== 'pagado').sort((a,b) => new Date(a.dueDate) - new Date(b.dueDate));
         
-        pendingQuotas.slice(0, 10).forEach(q => {
+        pendingQuotas.slice(0, 5).forEach(q => {
             const daysDelayed = countDaysDelayed(q.dueDate);
             const isMora = daysDelayed > 0;
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${q.clientName}</td>
-                <td>${q.clientRut}</td>
-                <td>Cuota ${q.num_quota}/${q.total_quotas} - ${q.dueDate}</td>
+                <td>Cuota ${q.num_quota}/${q.total_quotas}</td>
                 <td><span class="badge ${isMora ? 'badge-red' : 'badge-green'}">${isMora ? daysDelayed + ' días' : 'Al día'}</span></td>
                 <td style="font-weight:bold">${formatMoney(q.amount)}</td>
-                <td>${isMora ? 'En Mora' : 'Pendiente'}</td>
             `;
             alertsBody.appendChild(tr);
+        });
+
+        // Setup Chart
+        const prodAgg = {};
+        db.data.sales.filter(s => s.status === 'finalizada').forEach(sale => {
+            sale.items.forEach(item => {
+                prodAgg[item.name] = (prodAgg[item.name] || 0) + item.qty;
+            });
+        });
+
+        const sortedAgg = Object.entries(prodAgg).sort((a,b) => b[1] - a[1]).slice(0, 5);
+        const labels = sortedAgg.map(i => i[0]);
+        const data = sortedAgg.map(i => i[1]);
+
+        const ctx = document.getElementById('chartSales').getContext('2d');
+        if(salesChart) salesChart.destroy();
+        
+        salesChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels.length > 0 ? labels : ['Sin datos'],
+                datasets: [{
+                    label: 'Unidades Vendidas',
+                    data: data.length > 0 ? data : [0],
+                    backgroundColor: '#1a73e8',
+                    borderRadius: 4
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
         });
     };
 
@@ -99,12 +130,12 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const renderPOSProducts = (products) => {
         posProductGrid.innerHTML = '';
-        products.forEach(p => {
+        products.slice(0, 50).forEach(p => {
             const div = document.createElement('div');
             div.className = 'product-card';
             div.innerHTML = `
                 <div class="img-placeholder"><i class="fas fa-box"></i></div>
-                <h4>${p.name}</h4>
+                <h4 title="${p.name}">${p.name.length > 20 ? p.name.substring(0, 20)+'...' : p.name}</h4>
                 <div class="price">${formatMoney(p.price)}</div>
                 <div class="stock ${p.stock <= 5 ? 'text-red' : ''}">Stock: ${p.stock}</div>
             `;
@@ -128,11 +159,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const products = db.getProducts(query);
-        renderPOSProducts(products); // Mantiene el filtrado de grilla como extra
+        renderPOSProducts(products);
         
         searchResults.innerHTML = '';
         if (products.length > 0) {
-            products.forEach(p => {
+            products.slice(0, 10).forEach(p => {
                 const div = document.createElement('div');
                 div.className = 'autocomplete-item';
                 div.innerHTML = `<span><strong>${p.name}</strong> <small>(${p.sku})</small></span><span>${formatMoney(p.price)}</span>`;
@@ -142,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     searchInput.value = '';
                     searchResults.classList.add('hidden');
                     renderPOSProducts(db.getProducts());
-                    searchInput.focus(); // Mantiene el cursor listo para el siguiente
+                    searchInput.focus();
                 });
                 searchResults.appendChild(div);
             });
@@ -160,7 +191,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const products = db.getProducts(query);
             if (products.length > 0) {
-                // Al presionar Enter o usar un lector de código de barras, añade el primer resultado
                 db.addToCart(products[0]);
                 renderCart();
                 searchInput.value = '';
@@ -195,7 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
             div.className = 'cart-item';
             div.innerHTML = `
                 <div class="cart-item-info">
-                    <h4>${item.name}</h4>
+                    <h4 title="${item.name}">${item.name.length > 15 ? item.name.substring(0, 15)+'...' : item.name}</h4>
                     <p>${formatMoney(item.price)} x ${item.qty}</p>
                 </div>
                 <div class="cart-item-controls">
@@ -225,7 +255,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCart();
     });
 
-    // Client Selector in POS
     const updateClientUI = () => {
         if(db.data.currentClient) {
             document.getElementById('selected-client').innerHTML = `<i class="fas fa-user-circle"></i> ${db.data.currentClient.name} (${db.data.currentClient.rut})`;
@@ -234,12 +263,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // 3. CREDITOS (Cobranzas)
-    const loadCredits = () => {
+    // 3. CREDITOS LÓGICA (LIVE SEARCH)
+    const loadCredits = (query = '') => {
         const tBody = document.getElementById('credits-body');
         tBody.innerHTML = '';
         
-        db.data.quotas.forEach(q => {
+        const filtered = db.data.quotas.filter(q => {
+            if(!query) return true;
+            return q.clientName.toLowerCase().includes(query.toLowerCase()) || q.clientRut.includes(query);
+        });
+
+        filtered.forEach(q => {
             const tr = document.createElement('tr');
             const isMora = q.status === 'mora' || countDaysDelayed(q.dueDate) > 0;
             
@@ -259,17 +293,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
+    document.getElementById('credit-search').addEventListener('input', (e) => loadCredits(e.target.value));
+
     window.payQuota = (id) => {
         if(confirm('¿Confirmar pago de esta cuota? Esto actualizará el estado de cuenta.')) {
             const quota = db.data.quotas.find(q => q.id === id);
             if(quota) {
                 quota.status = 'pagado';
-                // discount debt from client
                 const client = db.data.clients.find(c => c.id === quota.clientId);
                 if(client) client.debt -= quota.amount;
                 db.save();
-                loadCredits();
-                loadDashboard();
+                loadCredits(document.getElementById('credit-search').value);
             }
         }
     };
@@ -279,25 +313,57 @@ document.addEventListener('DOMContentLoaded', () => {
         const body = document.getElementById('inventory-body');
         body.innerHTML = '';
         db.getProducts().forEach(p => {
-            const variantsStr = p.variants ? p.variants.map(v => `${v.size} / ${v.color}`).join('<br>') : '-';
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${p.sku}</td>
                 <td><strong>${p.name}</strong></td>
-                <td><small>${variantsStr}</small></td>
+                <td><small>${p.brand || 'S/M'}</small></td>
                 <td>${formatMoney(p.price)}</td>
                 <td><span class="${p.stock <= 5 ? 'text-red fw-bold' : ''}">${p.stock} u.</span></td>
+                <td><button class="btn-icon text-red" onclick="deleteProd('${p.id}')"><i class="fas fa-trash"></i></button></td>
+            `;
+            body.appendChild(tr);
+        });
+    };
+    
+    window.deleteProd = (id) => {
+        if(confirm('¿Eliminar producto?')) {
+            db.data.products = db.data.products.filter(p => p.id !== id);
+            db.save();
+            loadInventory();
+        }
+    };
+
+    // 5. WORKERS
+    const loadWorkers = () => {
+        const body = document.getElementById('workers-body');
+        body.innerHTML = '';
+        db.data.workers.forEach(w => {
+            const isActiv = (w.id === db.activeCashier);
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${w.id}</td>
+                <td><strong>${w.name}</strong></td>
+                <td><span class="badge ${isActiv ? 'badge-green' : 'badge-orange'}">${isActiv ? 'Activo' : 'Offline'}</span></td>
                 <td>
-                    <button class="btn-icon" title="Editar"><i class="fas fa-edit"></i></button>
-                    <button class="btn-icon" title="Stock"><i class="fas fa-cubes"></i></button>
+                    ${!isActiv ? `<button class="btn-primary" onclick='window.switchWork(${JSON.stringify(w)})'>Log in</button>` : '<i class="fas fa-check"></i> Activo'}
                 </td>
             `;
             body.appendChild(tr);
         });
     };
 
+    window.switchWork = (w) => {
+        const pin = prompt(`Ingrese PIN autorizador para ${w.name}:`);
+        if(pin === w.pin) {
+            db.switchCashier(w);
+        } else {
+            alert('PIN Incorrecto');
+        }
+    }
+
+
     // ===== MODALS LOGIC =====
-    // Utilities
     const openModal = (id) => document.getElementById(id).classList.add('active');
     const closeModal = (id) => document.getElementById(id).classList.remove('active');
 
@@ -307,24 +373,97 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // POS Payment Modal
+    // Nuevo Producto Modal
+    document.getElementById('btn-open-new-product').addEventListener('click', () => openModal('modal-product'));
+    document.getElementById('btn-save-product').addEventListener('click', () => {
+        const pInfo = {
+            name: document.getElementById('new-prod-name').value,
+            sku: document.getElementById('new-prod-sku').value,
+            price: parseInt(document.getElementById('new-prod-price').value, 10),
+            stock: parseInt(document.getElementById('new-prod-stock').value, 10),
+            brand: document.getElementById('new-prod-brand').value,
+        };
+        if(!pInfo.name || !pInfo.price) return alert("Faltan datos clave (Nombre/Precio)");
+        db.addProduct(pInfo);
+        closeModal('modal-product');
+        loadInventory();
+    });
+
+    // Worker Modal
+    document.getElementById('btn-new-worker').addEventListener('click', () => openModal('modal-worker'));
+    document.getElementById('btn-create-worker').addEventListener('click', () => {
+        const wInfo = {
+            name: document.getElementById('new-worker-name').value,
+            pin: document.getElementById('new-worker-pin').value || '1234'
+        };
+        if(!wInfo.name) return alert("Faltan datos del cajero");
+        db.addWorker(wInfo);
+        closeModal('modal-worker');
+        loadWorkers();
+    });
+
+    // Settings Modal
+    document.getElementById('btn-settings').addEventListener('click', () => {
+        openModal('modal-settings');
+        // Render provider list
+        const provList = document.getElementById('providers-list');
+        provList.innerHTML = '';
+        db.data.providers.forEach(p => {
+            provList.innerHTML += `<li>${p.name}</li>`;
+        });
+        // Render stock selects
+        const sSelect = document.getElementById('adj-product');
+        sSelect.innerHTML = '';
+        db.getProducts().forEach(p => {
+            sSelect.innerHTML += `<option value="${p.id}">${p.name} (Stock: ${p.stock})</option>`;
+        });
+    });
+    
+    document.getElementById('btn-save-provider').addEventListener('click', () => {
+        const nom = document.getElementById('new-provider-name').value;
+        if(nom) {
+            db.addProvider({name: nom});
+            document.getElementById('btn-settings').click(); // refresh modal state
+            document.getElementById('new-provider-name').value = '';
+        }
+    });
+
+    document.getElementById('btn-save-stock-adj').addEventListener('click', () => {
+        const prodId = document.getElementById('adj-product').value;
+        const nQty = parseInt(document.getElementById('adj-stock-qty').value, 10);
+        if(!isNaN(nQty)) {
+            const p = db.data.products.find(x => x.id === prodId);
+            if(p) p.stock = nQty;
+            db.save();
+            alert("Inventario modificado drásticamente.");
+            closeModal('modal-settings');
+            loadInventory();
+        }
+    });
+
+    // POS Payment Modal (VENTA CON CAMBIO Y ENTER)
     let selectedPaymentMethod = 'cash';
+    let currentTotal = 0;
+
     document.getElementById('btn-pay').addEventListener('click', () => {
         if (db.data.cart.length === 0) return alert('El carrito está vacío');
         
-        const total = db.data.cart.reduce((s, i) => s + (i.price * i.qty), 0);
-        document.getElementById('payment-total-display').textContent = formatMoney(total);
+        currentTotal = db.data.cart.reduce((s, i) => s + (i.price * i.qty), 0);
+        document.getElementById('payment-total-display').textContent = formatMoney(currentTotal);
         
-        // Reset warnings
         document.getElementById('credit-warning').classList.add('hidden');
         document.getElementById('credit-options').classList.add('hidden');
         
-        // Reset active
         document.querySelectorAll('.method-card').forEach(c => c.classList.remove('active'));
         document.querySelector('.method-card[data-method="cash"]').classList.add('active');
         selectedPaymentMethod = 'cash';
+        
+        document.getElementById('cash-options').classList.remove('hidden');
+        document.getElementById('cash-received').value = '';
+        document.getElementById('cash-change').textContent = '$0';
 
         openModal('modal-payment');
+        setTimeout(() => document.getElementById('cash-received').focus(), 100);
     });
 
     document.querySelectorAll('.method-card').forEach(card => {
@@ -333,42 +472,57 @@ document.addEventListener('DOMContentLoaded', () => {
             card.classList.add('active');
             selectedPaymentMethod = card.dataset.method;
 
-            const total = db.data.cart.reduce((s, i) => s + (i.price * i.qty), 0);
-
             if (selectedPaymentMethod === 'credit') {
                 document.getElementById('credit-options').classList.remove('hidden');
+                document.getElementById('cash-options').classList.add('hidden');
                 
-                // VALIDATE BUSINESS RULE: Check Limits and Mora
                 if (!db.data.currentClient) {
                     document.getElementById('credit-warning').classList.remove('hidden');
-                    document.getElementById('credit-warning').innerHTML = '<i class="fas fa-exclamation-circle"></i> Debe seleccionar un cliente primero.';
+                    document.getElementById('credit-warning').innerHTML = '<i class="fas fa-exclamation-circle"></i> Debe seleccionar un cliente.';
                     document.getElementById('btn-confirm-payment').disabled = true;
                     return;
                 }
-
-                const validation = db.validateCredit(db.data.currentClient.id, total);
+                const validation = db.validateCredit(db.data.currentClient.id, currentTotal);
                 if (!validation.valid) {
                     document.getElementById('credit-warning').classList.remove('hidden');
-                    document.getElementById('credit-warning').innerHTML = `<i class="fas fa-ban"></i> CRÉDITO RECHAZADO: ${validation.reason}`;
+                    document.getElementById('credit-warning').innerHTML = `<i class="fas fa-ban"></i> RECHAZADO: ${validation.reason}`;
                     document.getElementById('btn-confirm-payment').disabled = true;
                 } else {
                     document.getElementById('credit-warning').classList.add('hidden');
                     document.getElementById('btn-confirm-payment').disabled = false;
                 }
-
+            } else if (selectedPaymentMethod === 'cash') {
+                document.getElementById('credit-options').classList.add('hidden');
+                document.getElementById('cash-options').classList.remove('hidden');
+                document.getElementById('btn-confirm-payment').disabled = false;
+                document.getElementById('cash-received').focus();
             } else {
                 document.getElementById('credit-options').classList.add('hidden');
+                document.getElementById('cash-options').classList.add('hidden');
                 document.getElementById('btn-confirm-payment').disabled = false;
             }
         });
     });
 
+    // Lógica Vuelto y Submit con Enter
+    const cashInput = document.getElementById('cash-received');
+    cashInput.addEventListener('input', (e) => {
+        const received = parseInt(e.target.value, 10) || 0;
+        const change = received - currentTotal;
+        document.getElementById('cash-change').textContent = change >= 0 ? formatMoney(change) : 'Falta dinero';
+    });
+
+    cashInput.addEventListener('keydown', (e) => {
+        if(e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('btn-confirm-payment').click();
+        }
+    });
+
     document.getElementById('btn-confirm-payment').addEventListener('click', () => {
         let creditParams = null;
         if (selectedPaymentMethod === 'credit') {
-            creditParams = {
-                installments: parseInt(document.getElementById('credit-installments').value, 10)
-            }
+            creditParams = { installments: parseInt(document.getElementById('credit-installments').value, 10) }
         }
 
         const success = db.registerSale(selectedPaymentMethod, false, creditParams);
@@ -378,16 +532,14 @@ document.addEventListener('DOMContentLoaded', () => {
             renderPOSProducts(db.getProducts());
             db.data.currentClient = null;
             updateClientUI();
-            alert('Venta procesada con éxito!');
         }
     });
 
     document.getElementById('btn-presale').addEventListener('click', () => {
         if (db.data.cart.length === 0) return alert('El carrito está vacío');
-        const success = db.registerSale('cash', true);
-        if (success) {
+        if (db.registerSale('cash', true)) {
             renderCart();
-            alert('Preventa guardada y enviada a bodega.');
+            alert('Preventa enviada.');
         }
     });
 
@@ -400,8 +552,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', () => {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+            const tabsContainer = tab.closest('.modal-body') || tab.closest('.tabs').parentElement;
+            tabsContainer.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            tabsContainer.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
             
             tab.classList.add('active');
             document.getElementById(`tab-${tab.dataset.tab}`).classList.remove('hidden');
@@ -415,7 +568,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ul.innerHTML = '';
         db.getClients(query).forEach(c => {
             const li = document.createElement('li');
-            li.innerHTML = `<strong>${c.name}</strong> - ${c.rut} | Deuda: $${formatMoney(c.debt)}`;
+            li.innerHTML = `<strong>${c.name}</strong> - ${c.rut} | Límite: $${formatMoney(c.limit_credit)}`;
             li.addEventListener('click', () => {
                 db.data.currentClient = c;
                 db.save();
@@ -426,35 +579,26 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    document.getElementById('search-client-input').addEventListener('input', (e) => {
-        renderClientSearch(e.target.value);
-    });
+    document.getElementById('search-client-input').addEventListener('input', (e) => renderClientSearch(e.target.value));
 
     document.getElementById('btn-save-client').addEventListener('click', () => {
         const rut = document.getElementById('new-client-rut').value;
         const name = document.getElementById('new-client-name').value;
-        const giro = document.getElementById('new-client-giro').value;
-        const lim = document.getElementById('new-client-limit').value;
-
         if(!rut || !name) return alert('RUT y Nombre requeridos');
 
         const newClient = db.addClient({
-            rut: rut,
-            name: name,
-            giro: giro || 'Particular',
-            limit_credit: parseInt(lim, 10) || 0
+            rut, name, 
+            giro: document.getElementById('new-client-giro').value || 'Particular',
+            limit_credit: parseInt(document.getElementById('new-client-limit').value, 10) || 0
         });
 
         db.data.currentClient = newClient;
         db.save();
         updateClientUI();
         closeModal('modal-client');
-
-        document.getElementById('new-client-rut').value = '';
-        document.getElementById('new-client-name').value = '';
     });
 
-    // Init
+    // Acceso Inmediato
     document.querySelector('.nav-item[data-target="pos"]').click();
     renderPOSProducts(db.getProducts());
     renderCart();
