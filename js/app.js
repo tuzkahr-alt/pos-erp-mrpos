@@ -152,6 +152,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const query = e.target.value.trim();
+            if (!query) return;
+            
+            const products = db.getProducts(query);
+            if (products.length > 0) {
+                // Al presionar Enter o usar un lector de código de barras, añade el primer resultado
+                db.addToCart(products[0]);
+                renderCart();
+                searchInput.value = '';
+                searchResults.classList.add('hidden');
+                renderPOSProducts(db.getProducts());
+                searchInput.focus();
+            }
+        }
+    });
+
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.search-bar-modern')) {
             if(searchResults) searchResults.classList.add('hidden');
