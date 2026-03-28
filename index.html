@@ -10,6 +10,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -44,6 +46,12 @@
                         <i class="fas fa-box-open"></i>
                     </button>
                     <span class="tooltip">Inventario</span>
+                </li>
+                <li class="nav-item" data-target="reports">
+                    <button class="nav-btn" title="Informes y Reportes">
+                        <i class="fas fa-file-invoice-dollar"></i>
+                    </button>
+                    <span class="tooltip">Informes</span>
                 </li>
                 <li class="nav-item" data-target="workers">
                     <button class="nav-btn" title="Cajeros y Personal">
@@ -270,6 +278,44 @@
                                     </tr>
                                 </thead>
                                 <tbody id="workers-body">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 6. REPORTS VIEW -->
+                <section id="reports" class="view">
+                    <div class="kpi-grid" style="margin-bottom: 1.5rem;">
+                        <div class="kpi-card" style="flex:1;">
+                            <div class="kpi-data">
+                                <h3>Seleccionar Tipo de Informe</h3>
+                                <select id="report-type" class="form-control" style="margin-top:0.5rem;">
+                                    <option value="sales_product">Ventas por Producto</option>
+                                    <option value="sales_category">Ventas por Categoría / Marca</option>
+                                    <option value="sales_cashier">Rendimiento por Cajero</option>
+                                    <option value="sales_general">Historial General de Ventas</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="kpi-card" style="flex:1; display:flex; gap:1rem; align-items:center; justify-content:center;">
+                            <button class="btn-primary" id="btn-export-pdf" style="background:#e3342f;"><i class="fas fa-file-pdf"></i> PDF</button>
+                            <button class="btn-primary" id="btn-export-excel" style="background:#38c172;"><i class="fas fa-file-excel"></i> Excel (CSV)</button>
+                            <button class="btn-action bg-blue" id="btn-generate-report"><i class="fas fa-sync-alt"></i> Generar</button>
+                        </div>
+                    </div>
+                    
+                    <div class="widget">
+                        <div class="widget-header">
+                            <h2 id="report-title">Vista Previa del Informe</h2>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="datagrid" id="table-reports">
+                                <thead id="report-head">
+                                    <!-- Dynamic -->
+                                </thead>
+                                <tbody id="report-body">
+                                    <!-- Dynamic -->
                                 </tbody>
                             </table>
                         </div>
