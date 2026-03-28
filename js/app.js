@@ -23,7 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'pos': { t: 'Punto de Venta', s: 'Ventas y Preventas' },
         'credits': { t: 'Cobranzas y Créditos', s: 'Estado de cuenta, letras y abonos' },
         'inventory': { t: 'Inventario', s: `Gestión de productos. Caja Activa: ${currentCashierName}` },
-        'workers': { t: 'Cajeros y Personal', s: 'Gestión de Instancias Aisladas' }
+        'workers': { t: 'Cajeros y Personal', s: 'Gestión de Instancias Aisladas' },
+        'reports': { t: 'Informes y Estadísticas', s: 'Análisis numérico y descargas' }
     };
 
     navItems.forEach(item => {
@@ -46,6 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (target === 'credits') loadCredits();
             if (target === 'inventory') loadInventory();
             if (target === 'workers') loadWorkers();
+            if (target === 'reports') document.getElementById('btn-generate-report').click();
         });
     });
 
@@ -130,15 +132,28 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const renderPOSProducts = (products) => {
         posProductGrid.innerHTML = '';
-        products.slice(0, 10).forEach(p => {
+        products.filter(p => p.pos_active !== false).slice(0, 10).forEach(p => {
             const div = document.createElement('div');
             div.className = 'product-card';
+            div.style.position = 'relative';
             div.innerHTML = `
+                <button class="btn-icon text-red remove-grid" style="position:absolute; top:4px; right:4px; margin:0; padding:2px 5px; background:rgba(255,255,255,0.8); border-radius:50%; z-index:10;" title="Ocultar de acceso rápido"><i class="fas fa-times-circle"></i></button>
                 <div class="img-placeholder"><i class="fas fa-box"></i></div>
                 <h4 title="${p.name}">${p.name.length > 20 ? p.name.substring(0, 20)+'...' : p.name}</h4>
                 <div class="price">${formatMoney(p.price)}</div>
                 <div class="stock ${p.stock <= 5 ? 'text-red' : ''}">Stock: ${p.stock}</div>
             `;
+            
+            div.querySelector('.remove-grid').addEventListener('click', (e) => {
+                e.stopPropagation();
+                if(confirm('¿Ocultar este producto de la pantalla de ventas? (Seguirá existiendo en el Inventario y Buscador)')) {
+                    const prod = db.data.products.find(x => x.id === p.id);
+                    if(prod) prod.pos_active = false;
+                    db.save();
+                    renderPOSProducts(db.getProducts());
+                }
+            });
+
             div.addEventListener('click', () => {
                 db.addToCart(p);
                 renderCart();
@@ -320,12 +335,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td><small>${p.brand || 'S/M'}</small></td>
                 <td>${formatMoney(p.price)}</td>
                 <td><span class="${p.stock <= 5 ? 'text-red fw-bold' : ''}">${p.stock} u.</span></td>
-                <td><button class="btn-icon text-red" onclick="deleteProd('${p.id}')"><i class="fas fa-trash"></i></button></td>
+                <td>
+                    <button class="btn-icon text-blue" onclick="togglePosGrid('${p.id}')" title="${p.pos_active === false ? 'Añadir a Tablero POS' : 'Quitar de Tablero POS'}"><i class="fas ${p.pos_active === false ? 'fa-plus-square' : 'fa-minus-square'}"></i></button>
+                    <button class="btn-icon text-red" onclick="deleteProd('${p.id}')" title="Borrar del sistema"><i class="fas fa-trash"></i></button>
+                </td>
             `;
             body.appendChild(tr);
         });
     };
     
+    window.togglePosGrid = (id) => {
+        const prod = db.data.products.find(x => x.id === id);
+        if(prod) {
+            prod.pos_active = prod.pos_active === false ? true : false;
+            db.save();
+            loadInventory();
+        }
+    };
+
     window.deleteProd = (id) => {
         if(confirm('¿Eliminar producto?')) {
             db.data.products = db.data.products.filter(p => p.id !== id);
@@ -362,6 +389,109 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // 6. REPORTS LOGIC
+    let currentReportData = [];
+    let currentReportCols = [];
+
+    document.getElementById('btn-generate-report').addEventListener('click', () => {
+        const type = document.getElementById('report-type').value;
+        const thead = document.getElementById('report-head');
+        const tbody = document.getElementById('report-body');
+        document.getElementById('report-title').textContent = document.getElementById('report-type').options[document.getElementById('report-type').selectedIndex].text;
+        
+        thead.innerHTML = '';
+        tbody.innerHTML = '';
+        currentReportData = [];
+
+        const sales = db.data.sales.filter(s => s.status === 'finalizada');
+
+        if (type === 'sales_general') {
+            currentReportCols = ['Folio', 'Fecha', 'Cajero', 'Método', 'Total CLP'];
+            thead.innerHTML = `<tr>${currentReportCols.map(c => `<th>${c}</th>`).join('')}</tr>`;
+            sales.forEach(s => {
+                const dateF = s.date.split('T')[0];
+                currentReportData.push([s.id, dateF, s.cashier, s.method.toUpperCase(), s.total]); 
+                tbody.innerHTML += `<tr><td>${s.id}</td><td>${dateF}</td><td>${s.cashier}</td><td>${s.method.toUpperCase()}</td><td>${formatMoney(s.total)}</td></tr>`;
+            });
+        }
+        else if (type === 'sales_product') {
+            currentReportCols = ['Producto', 'Unidades Vendidas', 'Ingresos CLP'];
+            thead.innerHTML = `<tr>${currentReportCols.map(c => `<th>${c}</th>`).join('')}</tr>`;
+            const agg = {};
+            sales.forEach(s => s.items.forEach(i => {
+                if(!agg[i.name]) agg[i.name] = {q:0, t:0};
+                agg[i.name].q += i.qty;
+                agg[i.name].t += (i.qty * i.price);
+            }));
+            Object.keys(agg).sort((a,b)=>agg[b].t - agg[a].t).forEach(k => {
+                currentReportData.push([k, agg[k].q, agg[k].t]);
+                tbody.innerHTML += `<tr><td>${k}</td><td>${agg[k].q}</td><td>${formatMoney(agg[k].t)}</td></tr>`;
+            });
+        }
+        else if (type === 'sales_category') {
+            currentReportCols = ['Marca / Categoría', 'Unidades Vendidas', 'Ingresos Totales'];
+            thead.innerHTML = `<tr>${currentReportCols.map(c => `<th>${c}</th>`).join('')}</tr>`;
+            const agg = {};
+            sales.forEach(s => s.items.forEach(i => {
+                const brand = i.brand || 'S/M';
+                if(!agg[brand]) agg[brand] = {q:0, t:0};
+                agg[brand].q += i.qty;
+                agg[brand].t += (i.qty * i.price);
+            }));
+            Object.keys(agg).sort((a,b)=>agg[b].t - agg[a].t).forEach(k => {
+                currentReportData.push([k, agg[k].q, agg[k].t]);
+                tbody.innerHTML += `<tr><td>${k}</td><td>${agg[k].q}</td><td>${formatMoney(agg[k].t)}</td></tr>`;
+            });
+        }
+        else if (type === 'sales_cashier') {
+            currentReportCols = ['Nombre de Cajero', 'Transacciones Realizadas', 'Monto Generado'];
+            thead.innerHTML = `<tr>${currentReportCols.map(c => `<th>${c}</th>`).join('')}</tr>`;
+            const agg = {};
+            sales.forEach(s => {
+                const csh = s.cashier || 'Admin';
+                if(!agg[csh]) agg[csh] = {tx:0, t:0};
+                agg[csh].tx += 1;
+                agg[csh].t += s.total;
+            });
+            Object.keys(agg).sort((a,b)=>agg[b].t - agg[a].t).forEach(k => {
+                currentReportData.push([k, agg[k].tx, agg[k].t]);
+                tbody.innerHTML += `<tr><td>${k}</td><td>${agg[k].tx}</td><td>${formatMoney(agg[k].t)}</td></tr>`;
+            });
+        }
+    });
+
+    document.getElementById('btn-export-pdf').addEventListener('click', () => {
+        if(currentReportData.length === 0) return alert('Debes presionar "Generar" primero.');
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        doc.text(document.getElementById('report-title').textContent, 14, 15);
+        
+        const pdfData = currentReportData.map(row => row.map((cell, idx) => (typeof cell === 'number' && currentReportCols[idx].includes('CLP')) ? formatMoney(cell) : cell));
+        
+        doc.autoTable({
+            head: [currentReportCols],
+            body: pdfData,
+            startY: 20
+        });
+        doc.save('informe_mrpos.pdf');
+    });
+
+    document.getElementById('btn-export-excel').addEventListener('click', () => {
+        if(currentReportData.length === 0) return alert('Debes presionar "Generar" primero.');
+        let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // Para permitir tildes en Excel
+        csvContent += currentReportCols.join(";") + "\n";
+        currentReportData.forEach(row => {
+            csvContent += row.join(";") + "\n";
+        });
+        
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "informe_mrpos.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    });
 
     // ===== MODALS LOGIC =====
     const openModal = (id) => document.getElementById(id).classList.add('active');
