@@ -294,17 +294,19 @@
                                 <div style="display: flex; gap: 1rem; margin-top: 1rem;">
                                     <button class="btn-primary" id="btn-export-pdf" style="background:#e3342f;"><i class="fas fa-file-pdf"></i> PDF</button>
                                     <button class="btn-primary" id="btn-export-excel" style="background:#38c172;"><i class="fas fa-file-excel"></i> Excel</button>
-                                </div>
-                            </div>
-                        </div>
                         <div class="kpi-card" style="flex:1;">
                              <label>Seleccionar Tipo de Informe:</label>
-                             <select id="report-type" class="form-control" style="margin-top:0.5rem;">
-                                <option value="sales_product">Ventas por Producto</option>
-                                <option value="sales_category">Ventas por Marca</option>
-                                <option value="sales_general">Historial General de Ventas</option>
-                            </select>
-                            <button class="btn-action bg-blue w-100 mt-2" id="btn-generate-report"><i class="fas fa-sync-alt"></i> Generar Datos</button>
+                                <select id="report-type" class="form-control" style="margin-top:0.5rem;">
+                                    <option value="sales_day">Ventas por Día (Resumen)</option>
+                                    <option value="sales_week">Ventas por Semana</option>
+                                    <option value="sales_month">Ventas por Mes</option>
+                                    <option value="sales_product">Ventas por Producto</option>
+                                    <option value="sales_category">Ventas por Categoría</option>
+                                    <option value="sales_cashier">Ventas por Caja (Cajeros)</option>
+                                    <option value="sales_provider">Ventas por Proveedor</option>
+                                    <option value="sales_general">Historial General de Ventas</option>
+                                </select>
+                           <button class="btn-action bg-blue w-100 mt-2" id="btn-generate-report"><i class="fas fa-sync-alt"></i> Generar Datos</button>
                         </div>
                     </div>
                     
