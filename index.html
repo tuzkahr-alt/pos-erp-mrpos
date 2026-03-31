@@ -464,15 +464,39 @@
 
     <!-- Settings Modal -->
     <div class="modal-overlay" id="modal-settings">
-        <div class="modal">
-            <div class="modal-header"><h2>Configuración</h2><button class="btn-close-modal"><i class="fas fa-times"></i></button></div>
+        <div class="modal" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>Configuración del Sistema</h2>
+                <button class="btn-close-modal"><i class="fas fa-times"></i></button>
+            </div>
             <div class="modal-body">
-                <h4>Gestión de Proveedores</h4>
-                <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
-                    <input type="text" class="form-control" id="new-provider-name" placeholder="Nombre Proveedor">
-                    <button class="btn-primary" id="btn-save-provider">Añadir</button>
+                <div class="tabs">
+                    <div class="tab active" data-tab="providers">Proveedores</div>
+                    <div class="tab" data-tab="stock-adj">Ajustar Stock Gral</div>
                 </div>
-                <ul class="client-list" id="providers-list"></ul>
+                
+                <div id="tab-providers" class="tab-content active mt-2">
+                    <div class="form-group">
+                        <label>Nuevo Proveedor (Distribuidor):</label>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <input type="text" class="form-control" id="new-provider-name" placeholder="Nombre Proveedor">
+                            <button class="btn-primary" id="btn-save-provider">Grabar</button>
+                        </div>
+                    </div>
+                    <ul class="client-list mt-4" id="providers-list"></ul>
+                </div>
+
+                <div id="tab-stock-adj" class="tab-content mt-2 hidden">
+                    <div class="form-group">
+                        <label>Seleccionar Producto a Actualizar:</label>
+                        <select class="form-control" id="adj-product"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Cantidad de Stock Real:</label>
+                        <input type="number" class="form-control" id="adj-stock-qty">
+                    </div>
+                    <button class="btn-primary w-100" id="btn-save-stock-adj">Ajustar Inventario Manualmente</button>
+                </div>
             </div>
         </div>
     </div>

@@ -168,18 +168,19 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-settings').onclick = () => {
         const pList = document.getElementById('providers-list'); pList.innerHTML = '';
         db.data.providers.forEach(p => pList.innerHTML += `<li>${p.name}</li>`);
+        const adjSel = document.getElementById('adj-product');
+        adjSel.innerHTML = db.data.products.map(p => `<option value="${p.id}">${p.name} (SKU: ${p.sku})</option>`).join('');
+        switchTab('modal-settings', 'providers');
         openModal('modal-settings');
     };
+
     document.getElementById('btn-save-product').onclick = () => {
         const name = document.getElementById('new-prod-name').value;
         const sku = document.getElementById('new-prod-sku').value;
         const price = parseInt(document.getElementById('new-prod-price').value || 0);
-        
         if(!name || !sku || price <= 0) return alert("Nombre, SKU y Precio son obligatorios");
-
         const p = { 
-            name: name,
-            sku: sku,
+            name: name, sku: sku,
             talla: document.getElementById('new-prod-talla').value || 'U',
             genero: document.getElementById('new-prod-genero').value || 'Unisex',
             price: price,
@@ -187,16 +188,21 @@ document.addEventListener('DOMContentLoaded', () => {
             brand: document.getElementById('new-prod-brand').value || '',
             provider: document.getElementById('new-prod-prov').value || 'General'
         };
-        
         db.addProduct(p);
-        closeModal('modal-product');
-        loadInventory();
-        renderPOSGrid(); // ¡IMPORTANTE: Refrescar POS para ver el nuevo producto!
+        closeModal('modal-product'); loadInventory(); renderPOSGrid();
         alert("Producto agregado exitosamente.");
     };
+
     document.getElementById('btn-save-provider').onclick = () => {
         const n = document.getElementById('new-provider-name').value;
         if(n) { db.addProvider({name: n}); document.getElementById('btn-settings').click(); }
+    };
+
+    document.getElementById('btn-save-stock-adj').onclick = () => {
+        const pid = document.getElementById('adj-product').value;
+        const qty = parseInt(document.getElementById('adj-stock-qty').value || 0);
+        const prod = db.data.products.find(x => x.id === pid);
+        if(prod) { prod.stock = qty; db.save(); alert("Stock ajustado."); renderPOSGrid(); loadInventory(); }
     };
 
     // ===== 5. REPORTES AVANZADOS (DÍA, CAJA, SEMANA, PROVEEDOR...) =====
